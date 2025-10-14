@@ -3,6 +3,7 @@ import { TeamPanel } from "./TeamPanel";
 import { GameZone } from "./GameZone";
 import { Scoreboard } from "./Scoreboard";
 import { useToast } from "@/hooks/use-toast";
+import { QUESTIONS } from "@/data/questions";
 
 interface GameScreenProps {
   teamAName: string;
@@ -24,16 +25,12 @@ export interface GameState {
   currentBowler: number;
   usedBalls: number[];
   teamAScore?: { runs: number; wickets: number; overs: number };
+  gameOver?: boolean;
+  winner?: string;
 }
 
-// Mock questions for demonstration
-const mockQuestions = Array.from({ length: 15 }, (_, i) => ({
-  id: i + 1,
-  question: `What is ${Math.floor(Math.random() * 10) + 1} × ${Math.floor(Math.random() * 10) + 1}?`,
-  options: ["12", "15", "18", "21"],
-  correct: 0,
-  runs: [0, 1, 1, 2, 2, 4, 4, 6][Math.floor(Math.random() * 8)],
-}));
+// Use QUESTIONS from data
+const mockQuestions = QUESTIONS.slice(0, 15);
 
 export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, battingFirst }: GameScreenProps) => {
   const { toast } = useToast();
@@ -48,6 +45,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
     currentBatter: 0,
     currentBowler: 10, // Start from bottom (last player)
     usedBalls: [],
+    gameOver: false,
   });
 
   const handleBallSelect = (ballNumber: number) => {
@@ -97,6 +95,90 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
       // Move to next bowler (bottom to top)
       newBowler = prev.currentBowler - 1;
       if (newBowler < 0) newBowler = 10; // Wrap around to bottom
+
+      // Check innings boundaries: 10 balls per innings
+      const BALLS_PER_INNINGS = 10;
+
+      // If currently in innings 1 and we've completed the allotted balls, end innings 1
+      if (prev.innings === 1 && newBalls >= BALLS_PER_INNINGS) {
+        // Save team A score (score of first innings regardless of which team batted first)
+        const teamAScore = prev.battingTeam === "A" ? { runs: newRuns, wickets: newWickets, overs: newOvers } : prev.teamAScore ?? { runs: 0, wickets: 0, overs: 0 };
+        const teamBScore = prev.battingTeam === "B" ? { runs: newRuns, wickets: newWickets, overs: newOvers } : undefined;
+
+        // Determine new batting team (switch)
+        const nextBatting = prev.battingTeam === "A" ? "B" : "A";
+
+        toast({ title: "Innings Over", description: `End of innings 1. Target: ${newRuns + 1} runs.` });
+
+        return {
+          ...prev,
+          // store the first innings score in teamAScore regardless (for target display logic)
+          teamAScore: prev.battingTeam === "A" ? { runs: newRuns, wickets: newWickets, overs: newOvers } : prev.teamAScore ?? { runs: newRuns, wickets: newWickets, overs: newOvers },
+          innings: 2,
+          battingTeam: nextBatting,
+          // reset match-specific counters for the chase
+          runs: 0,
+          wickets: 0,
+          overs: 0,
+          balls: 0,
+          currentBatter: 0,
+          currentBowler: 10,
+          // reset usedBalls so all 15 questions are available again for innings 2
+          usedBalls: [],
+        };
+      }
+
+      // If we're in innings 2, check for early victory or end of match after BALLS_PER_INNINGS
+      if (prev.innings === 2) {
+        const target = prev.teamAScore ? prev.teamAScore.runs + 1 : undefined;
+
+        // Early chase success
+        if (typeof target === "number" && newRuns >= target) {
+          const winnerName = prev.battingTeam === "A" ? teamAName : teamBName;
+          toast({ title: `Match Over`, description: `${winnerName} won by chasing the target! 🏆` });
+          return {
+            ...prev,
+            runs: newRuns,
+            wickets: newWickets,
+            overs: newOvers,
+            balls: newBalls,
+            currentBatter: newBatter,
+            currentBowler: newBowler,
+            gameOver: true,
+            winner: winnerName,
+          };
+        }
+
+        // End of second innings by balls exhausted
+        if (newBalls >= BALLS_PER_INNINGS) {
+          // Compare scores and declare winner or tie
+          const firstInningsRuns = prev.teamAScore ? prev.teamAScore.runs : 0;
+          const secondInningsRuns = newRuns;
+          let winnerName = "";
+          if (secondInningsRuns > firstInningsRuns) {
+            winnerName = prev.battingTeam === "A" ? teamAName : teamBName;
+          } else if (secondInningsRuns < firstInningsRuns) {
+            // Winner is the team that batted first
+            winnerName = prev.battingTeam === "A" ? teamBName : teamAName;
+          } else {
+            winnerName = "Tie";
+          }
+
+          toast({ title: `Match Over`, description: winnerName === "Tie" ? `The match is a tie.` : `${winnerName} won the match! 🏆` });
+
+          return {
+            ...prev,
+            runs: newRuns,
+            wickets: newWickets,
+            overs: newOvers,
+            balls: newBalls,
+            currentBatter: newBatter,
+            currentBowler: newBowler,
+            gameOver: true,
+            winner: winnerName,
+          };
+        }
+      }
 
       return {
         ...prev,

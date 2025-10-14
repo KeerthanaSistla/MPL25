@@ -14,6 +14,13 @@ export const Scoreboard = ({ teamAName, teamBName, gameState }: ScoreboardProps)
 
   return (
     <Card className="bg-gradient-pitch p-6 shadow-stadium">
+      {/* Show result if game over */}
+      {gameState.gameOver && (
+        <div className="mb-4 p-4 rounded-lg bg-accent/20 text-center">
+          <h2 className="text-2xl font-extrabold">Match Result</h2>
+          <p className="text-lg mt-2">{gameState.winner === "Tie" ? "It's a Tie!" : `${gameState.winner} won! 🏆`}</p>
+        </div>
+      )}
       <div className="grid md:grid-cols-3 gap-6 items-center">
         {/* Current Score */}
         <div className="text-center">

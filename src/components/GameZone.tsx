@@ -5,9 +5,9 @@ import { Circle, Clock } from "lucide-react";
 
 interface Question {
   id: number;
-  question: string;
-  options: string[];
-  correct: number;
+  text: string;
+  choices: string[];
+  correctIndex: number;
   runs: number;
 }
 
@@ -59,7 +59,7 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
   const handleAnswerClick = (optionIndex: number) => {
     if (!selectedBall) return;
 
-    const isCorrect = optionIndex === selectedBall.correct;
+    const isCorrect = optionIndex === selectedBall.correctIndex;
 
     if (stage === "batter") {
       if (isCorrect) {
@@ -150,7 +150,7 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
               </div>
 
               <h3 className="text-2xl font-bold text-foreground mb-2">
-                {selectedBall.question}
+                {selectedBall.text}
               </h3>
               <p className="text-sm text-muted-foreground">
                 Worth {selectedBall.runs} run{selectedBall.runs !== 1 ? "s" : ""}
@@ -158,7 +158,7 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {selectedBall.options.map((option, idx) => (
+              {selectedBall.choices.map((option, idx) => (
                 <Button
                   key={idx}
                   onClick={() => handleAnswerClick(idx)}
