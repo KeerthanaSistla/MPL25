@@ -31,7 +31,7 @@ export const SetupScreen = ({ onComplete }: SetupScreenProps) => {
         <div className="flex items-center justify-center gap-3 mb-8">
           <Trophy className="w-10 h-10 text-secondary" />
           <h1 className="text-4xl font-bold text-center bg-gradient-gold bg-clip-text text-transparent">
-            Math Cricket Setup
+            Mathematics Premier League
           </h1>
           <Trophy className="w-10 h-10 text-secondary" />
         </div>
