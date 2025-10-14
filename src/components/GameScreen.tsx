@@ -46,7 +46,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
     balls: 0,
     extras: 0,
     currentBatter: 0,
-    currentBowler: 0,
+    currentBowler: 10, // Start from bottom (last player)
     usedBalls: [],
   });
 
@@ -66,6 +66,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
       let newRuns = prev.runs;
       let newWickets = prev.wickets;
       let newBatter = prev.currentBatter;
+      let newBowler = prev.currentBowler;
 
       if (result.batterCorrect) {
         // Batter scored runs
@@ -77,7 +78,6 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
       } else if (result.bowlerCorrect) {
         // Wicket!
         newWickets += 1;
-        newBatter = prev.currentBatter + 1;
         toast({
           title: "WICKET! 🎯",
           description: "Bowler got it right! Batter is out!",
@@ -91,6 +91,13 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         });
       }
 
+      // Move to next batter (top to bottom)
+      newBatter = prev.currentBatter + 1;
+      
+      // Move to next bowler (bottom to top)
+      newBowler = prev.currentBowler - 1;
+      if (newBowler < 0) newBowler = 10; // Wrap around to bottom
+
       return {
         ...prev,
         runs: newRuns,
@@ -98,6 +105,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         balls: newBalls,
         overs: newOvers,
         currentBatter: newBatter,
+        currentBowler: newBowler,
       };
     });
   };
