@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Circle } from "lucide-react";
+import { Circle, Clock } from "lucide-react";
 
 interface Question {
   id: number;
@@ -14,23 +14,84 @@ interface Question {
 interface GameZoneProps {
   availableBalls: Question[];
   onBallSelect: (ballNumber: number) => void;
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (result: { batterCorrect: boolean; bowlerCorrect?: boolean; runs: number }) => void;
 }
 
 export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZoneProps) => {
   const [selectedBall, setSelectedBall] = useState<Question | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [stage, setStage] = useState<"batter" | "bowler" | null>(null);
+  const [batterAnswer, setBatterAnswer] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (selectedBall && stage && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            // Time's up - treat as wrong answer
+            if (stage === "batter") {
+              handleBatterWrong();
+            } else {
+              handleBowlerAnswer(false);
+            }
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [selectedBall, stage, timeLeft]);
 
   const handleBallClick = (ball: Question) => {
     setSelectedBall(ball);
+    setStage("batter");
+    setTimeLeft(30);
+    setBatterAnswer(null);
     onBallSelect(ball.id);
   };
 
+  const handleBatterWrong = () => {
+    setStage("bowler");
+    setTimeLeft(30);
+  };
+
   const handleAnswerClick = (optionIndex: number) => {
-    if (selectedBall) {
-      const isCorrect = optionIndex === selectedBall.correct;
-      onAnswer(isCorrect);
-      setSelectedBall(null);
+    if (!selectedBall) return;
+
+    const isCorrect = optionIndex === selectedBall.correct;
+
+    if (stage === "batter") {
+      if (isCorrect) {
+        // Batter scored runs
+        onAnswer({ batterCorrect: true, runs: selectedBall.runs });
+        resetGame();
+      } else {
+        // Batter got it wrong, bowler's turn
+        setBatterAnswer(optionIndex);
+        handleBatterWrong();
+      }
+    } else if (stage === "bowler") {
+      handleBowlerAnswer(isCorrect);
     }
+  };
+
+  const handleBowlerAnswer = (isCorrect: boolean) => {
+    if (isCorrect) {
+      // Bowler correct = Wicket
+      onAnswer({ batterCorrect: false, bowlerCorrect: true, runs: 0 });
+    } else {
+      // Both wrong = Dot ball
+      onAnswer({ batterCorrect: false, bowlerCorrect: false, runs: 0 });
+    }
+    resetGame();
+  };
+
+  const resetGame = () => {
+    setSelectedBall(null);
+    setStage(null);
+    setTimeLeft(30);
+    setBatterAnswer(null);
   };
 
   return (
@@ -72,6 +133,22 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
                 <span className="font-bold">Ball {selectedBall.id}</span>
                 <Circle className="w-4 h-4" />
               </div>
+              
+              {/* Timer */}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Clock className="w-5 h-5" />
+                <span className={`text-2xl font-bold ${timeLeft <= 10 ? "text-destructive animate-pulse" : ""}`}>
+                  {timeLeft}s
+                </span>
+              </div>
+
+              {/* Stage indicator */}
+              <div className="mb-4">
+                <span className="px-3 py-1 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                  {stage === "batter" ? "🏏 Batter's Turn" : "⚾ Bowler's Turn"}
+                </span>
+              </div>
+
               <h3 className="text-2xl font-bold text-foreground mb-2">
                 {selectedBall.question}
               </h3>
@@ -86,7 +163,10 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
                   key={idx}
                   onClick={() => handleAnswerClick(idx)}
                   size="lg"
-                  className="h-20 text-lg bg-muted hover:bg-accent hover:scale-105 transition-transform"
+                  disabled={stage === "bowler" && batterAnswer === idx}
+                  className={`h-20 text-lg bg-muted hover:bg-accent hover:scale-105 transition-transform ${
+                    stage === "bowler" && batterAnswer === idx ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
                 >
                   {String.fromCharCode(65 + idx)}. {option}
                 </Button>

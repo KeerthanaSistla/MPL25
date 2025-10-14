@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TeamPanel } from "./TeamPanel";
 import { GameZone } from "./GameZone";
 import { Scoreboard } from "./Scoreboard";
+import { useToast } from "@/hooks/use-toast";
 
 interface GameScreenProps {
   teamAName: string;
@@ -35,6 +36,7 @@ const mockQuestions = Array.from({ length: 15 }, (_, i) => ({
 }));
 
 export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, battingFirst }: GameScreenProps) => {
+  const { toast } = useToast();
   const [gameState, setGameState] = useState<GameState>({
     innings: 1,
     battingTeam: battingFirst,
@@ -49,24 +51,53 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
   });
 
   const handleBallSelect = (ballNumber: number) => {
-    // This will be expanded with question logic
     setGameState(prev => ({
       ...prev,
       usedBalls: [...prev.usedBalls, ballNumber],
     }));
   };
 
-  const handleAnswer = (isCorrect: boolean) => {
-    // Game logic for answer processing
+  const handleAnswer = (result: { batterCorrect: boolean; bowlerCorrect?: boolean; runs: number }) => {
     setGameState(prev => {
       const newBalls = prev.balls + 1;
-      const newOvers = Math.floor(newBalls / 6);
+      const newOvers = prev.overs + (newBalls % 6 === 0 ? 1 : 0);
       const ballsInOver = newBalls % 6;
+
+      let newRuns = prev.runs;
+      let newWickets = prev.wickets;
+      let newBatter = prev.currentBatter;
+
+      if (result.batterCorrect) {
+        // Batter scored runs
+        newRuns += result.runs;
+        toast({
+          title: `${result.runs} RUN${result.runs !== 1 ? "S" : ""}! 🎉`,
+          description: `Great shot by the batter!`,
+        });
+      } else if (result.bowlerCorrect) {
+        // Wicket!
+        newWickets += 1;
+        newBatter = prev.currentBatter + 1;
+        toast({
+          title: "WICKET! 🎯",
+          description: "Bowler got it right! Batter is out!",
+          variant: "destructive",
+        });
+      } else {
+        // Dot ball (both wrong)
+        toast({
+          title: "DOT BALL ⚪",
+          description: "Both got it wrong!",
+        });
+      }
 
       return {
         ...prev,
+        runs: newRuns,
+        wickets: newWickets,
         balls: newBalls,
         overs: newOvers,
+        currentBatter: newBatter,
       };
     });
   };
