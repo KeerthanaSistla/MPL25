@@ -31,6 +31,16 @@ const Index = () => {
     setScreen("game");
   };
 
+  const handleNewGame = () => {
+    // Clear teams and go back to setup
+    setTeamAName("");
+    setTeamBName("");
+    setTeamAPlayers([]);
+    setTeamBPlayers([]);
+    setBattingFirst("A");
+    setScreen("setup");
+  };
+
   return (
     <>
       {screen === "setup" && <SetupScreen onComplete={handleSetupComplete} />}
@@ -48,6 +58,7 @@ const Index = () => {
           teamAPlayers={teamAPlayers}
           teamBPlayers={teamBPlayers}
           battingFirst={battingFirst}
+          onNewGame={handleNewGame}
         />
       )}
     </>

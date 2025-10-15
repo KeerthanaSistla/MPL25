@@ -18,12 +18,14 @@ export const SetupScreen = ({ onComplete }: SetupScreenProps) => {
     const validTeamA = teamAPlayers.filter(p => p.trim() !== "");
     const validTeamB = teamBPlayers.filter(p => p.trim() !== "");
     
-    if (validTeamA.length === 11 && validTeamB.length === 11) {
+    // Allow matches with fewer than 11 players per team. Require at least 1 player per team.
+    if (validTeamA.length >= 1 && validTeamB.length >= 1) {
       onComplete(teamAName, teamBName, validTeamA, validTeamB);
     }
   };
 
-  const isValid = teamAPlayers.every(p => p.trim() !== "") && teamBPlayers.every(p => p.trim() !== "");
+  // Form is valid when each team has at least one non-empty player name
+  const isValid = teamAPlayers.filter(p => p.trim() !== "").length >= 1 && teamBPlayers.filter(p => p.trim() !== "").length >= 1;
 
   return (
     <div className="min-h-screen bg-gradient-stadium flex items-center justify-center p-6 animate-fade-in">

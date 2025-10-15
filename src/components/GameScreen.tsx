@@ -3,14 +3,14 @@ import { TeamPanel } from "./TeamPanel";
 import { GameZone } from "./GameZone";
 import { Scoreboard } from "./Scoreboard";
 import { useToast } from "@/hooks/use-toast";
-import { QUESTIONS } from "@/data/questions";
-
+import { QUESTIONS } from "../data/questions";
 interface GameScreenProps {
   teamAName: string;
   teamBName: string;
   teamAPlayers: string[];
   teamBPlayers: string[];
   battingFirst: "A" | "B";
+  onNewGame?: () => void;
 }
 
 export interface GameState {
@@ -29,10 +29,35 @@ export interface GameState {
   winner?: string;
 }
 
-// Use QUESTIONS from data
-const mockQuestions = QUESTIONS.slice(0, 15);
+// Create two distinct 15-question pools so innings 1 and innings 2 use different questions
+const generatePools = () => {
+  const all = [...QUESTIONS];
+  const shuffled = all.sort(() => Math.random() - 0.5);
+  const first = shuffled.slice(0, 15).map((q, idx) => ({ ...q, id: idx + 1 }));
+  const second = shuffled.slice(15, 30).map((q, idx) => ({ ...q, id: idx + 16 }));
 
-export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, battingFirst }: GameScreenProps) => {
+  // Mark 5 random balls in each pool as extras (wide/noball)
+  const markExtras = (pool: any[]) => {
+    const idxs = Array.from({ length: pool.length }, (_, i) => i).sort(() => Math.random() - 0.5).slice(0, 5);
+    for (const i of idxs) {
+      pool[i].type = Math.random() < 0.5 ? "wide" : "noball";
+      // extras typically award 1 run
+      pool[i].runs = 0; // extra doesn't carry runs from question
+    }
+  };
+
+  markExtras(first);
+  markExtras(second);
+  return { first, second };
+};
+
+const [questionPools] = ((): [{ first: typeof QUESTIONS; second: typeof QUESTIONS }] => {
+  // Use a stable initial value so pools don't reshuffle on re-render
+  const pools = generatePools();
+  return [pools as any];
+})();
+
+export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, battingFirst, onNewGame }: GameScreenProps) => {
   const { toast } = useToast();
   const [gameState, setGameState] = useState<GameState>({
     innings: 1,
@@ -55,8 +80,17 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
     }));
   };
 
-  const handleAnswer = (result: { batterCorrect: boolean; bowlerCorrect?: boolean; runs: number }) => {
+  const handleAnswer = (result: { batterCorrect?: boolean; bowlerCorrect?: boolean; runs?: number; isExtra?: boolean; extraType?: "wide" | "noball"; extraRuns?: number }) => {
     setGameState(prev => {
+      // Handle extras first: award extraRuns (default 1), increment extras, but do not count as legal ball
+      if (result.isExtra) {
+        const added = result.extraRuns ?? 1;
+        const newRuns = prev.runs + added;
+        const newExtras = prev.extras + added;
+        toast({ title: `EXTRA +${added}`, description: `Received ${result.extraType}` });
+        return { ...prev, runs: newRuns, extras: newExtras };
+      }
+
       const newBalls = prev.balls + 1;
       const newOvers = prev.overs + (newBalls % 6 === 0 ? 1 : 0);
       const ballsInOver = newBalls % 6;
@@ -68,9 +102,9 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
 
       if (result.batterCorrect) {
         // Batter scored runs
-        newRuns += result.runs;
+        newRuns += result.runs ?? 0;
         toast({
-          title: `${result.runs} RUN${result.runs !== 1 ? "S" : ""}! 🎉`,
+          title: `${result.runs ?? 0} RUN${(result.runs ?? 0) !== 1 ? "S" : ""}! 🎉`,
           description: `Great shot by the batter!`,
         });
       } else if (result.bowlerCorrect) {
@@ -89,12 +123,19 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         });
       }
 
-      // Move to next batter (top to bottom)
-      newBatter = prev.currentBatter + 1;
-      
-      // Move to next bowler (bottom to top)
-      newBowler = prev.currentBowler - 1;
-      if (newBowler < 0) newBowler = 10; // Wrap around to bottom
+  // Determine team sizes based on who's batting currently
+  const battingPlayers = prev.battingTeam === "A" ? teamAPlayers : teamBPlayers;
+  const bowlingPlayers = prev.battingTeam === "A" ? teamBPlayers : teamAPlayers;
+  const battingSize = Math.max(1, battingPlayers.length);
+  const bowlingSize = Math.max(1, bowlingPlayers.length);
+
+  // Move to next batter (top to bottom) and wrap around smaller teams
+  newBatter = (prev.currentBatter + 1) % battingSize;
+
+  // Move to next bowler (bottom to top) and wrap using bowlingSize
+  // Normalize prev.currentBowler to be within [0, bowlingSize-1]
+  const normalizedPrevBowler = ((prev.currentBowler % bowlingSize) + bowlingSize) % bowlingSize;
+  newBowler = (normalizedPrevBowler - 1 + bowlingSize) % bowlingSize;
 
       // Check innings boundaries: 10 balls per innings
       const BALLS_PER_INNINGS = 10;
@@ -197,6 +238,19 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
 
   return (
     <div className="min-h-screen bg-gradient-stadium p-4 animate-fade-in">
+      <div className="flex justify-end mb-2">
+        <button
+          className="px-3 py-1 rounded bg-muted hover:bg-accent"
+          onClick={() => {
+            if (onNewGame) return onNewGame();
+            if (window.confirm("Start a new game? This will reset teams and questions.")) {
+              window.location.reload();
+            }
+          }}
+        >
+          New Game
+        </button>
+      </div>
       <Scoreboard
         teamAName={teamAName}
         teamBName={teamBName}
@@ -209,13 +263,17 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
           teamName={gameState.battingTeam === "A" ? teamAName : teamBName}
           players={battingTeamPlayers}
           color={gameState.battingTeam === "A" ? "team-a" : "team-b"}
-          currentPlayer={gameState.currentBatter}
+          currentPlayer={battingTeamPlayers.length > 0 ? gameState.currentBatter % battingTeamPlayers.length : 0}
           role="batting"
         />
 
         {/* Center: Game Zone */}
         <GameZone
-          availableBalls={mockQuestions.filter(q => !gameState.usedBalls.includes(q.id))}
+          availableBalls={((): (typeof QUESTIONS[number] | null)[] => {
+            const pool = gameState.innings === 1 ? questionPools.first : questionPools.second;
+            // create 15 slots; if a question from pool is used, slot becomes null
+            return pool.map(q => (gameState.usedBalls.includes(q.id) ? null : q));
+          })()}
           onBallSelect={handleBallSelect}
           onAnswer={handleAnswer}
         />
@@ -225,7 +283,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
           teamName={gameState.battingTeam === "A" ? teamBName : teamAName}
           players={bowlingTeamPlayers}
           color={gameState.battingTeam === "A" ? "team-b" : "team-a"}
-          currentPlayer={gameState.currentBowler}
+          currentPlayer={bowlingTeamPlayers.length > 0 ? gameState.currentBowler % bowlingTeamPlayers.length : 0}
           role="bowling"
         />
       </div>

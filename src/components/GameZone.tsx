@@ -12,7 +12,7 @@ interface Question {
 }
 
 interface GameZoneProps {
-  availableBalls: Question[];
+  availableBalls: (Question | null)[];
   onBallSelect: (ballNumber: number) => void;
   onAnswer: (result: { batterCorrect: boolean; bowlerCorrect?: boolean; runs: number }) => void;
 }
@@ -101,12 +101,12 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
         <h3 className="text-xl font-bold text-center mb-4 text-secondary">Select a Ball</h3>
         <div className="grid grid-cols-5 gap-3">
           {Array.from({ length: 15 }, (_, i) => {
-            const isAvailable = availableBalls.some(b => b.id === i + 1);
+            const ball = availableBalls[i];
+            const isAvailable = ball !== null;
             return (
               <Button
                 key={i + 1}
                 onClick={() => {
-                  const ball = availableBalls.find(b => b.id === i + 1);
                   if (ball) handleBallClick(ball);
                 }}
                 disabled={!isAvailable}
