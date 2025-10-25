@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TeamPanel } from "./TeamPanel";
 import { GameZone } from "./GameZone";
 import { Scoreboard } from "./Scoreboard";
-import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { QUESTIONS } from "../data/questions";
 interface GameScreenProps {
   teamAName: string;
@@ -58,7 +58,6 @@ const [questionPools] = ((): [{ first: typeof QUESTIONS; second: typeof QUESTION
 })();
 
 export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, battingFirst, onNewGame }: GameScreenProps) => {
-  const { toast } = useToast();
   const initialBowlingTeam = battingFirst === "A" ? teamBPlayers : teamAPlayers;
   const initialBowlingSize = Math.max(1, initialBowlingTeam.length);
   const [gameState, setGameState] = useState<GameState>({
@@ -74,12 +73,21 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
     usedBalls: [],
     gameOver: false,
   });
+  const [modalMessage, setModalMessage] = useState<{ title: string; description: string } | null>(null);
+  const [inningsOverModal, setInningsOverModal] = useState<{ title: string; description: string } | null>(null);
 
   const handleBallSelect = (ballNumber: number) => {
     setGameState(prev => ({
       ...prev,
       usedBalls: [...prev.usedBalls, ballNumber],
     }));
+  };
+
+  const showModal = (title: string, description: string, persistent: boolean = false) => {
+    setModalMessage({ title, description });
+    if (!persistent) {
+      setTimeout(() => setModalMessage(null), 750); // Auto-dismiss after 1 second
+    }
   };
 
   const handleAnswer = (result: { batterCorrect?: boolean; bowlerCorrect?: boolean; runs?: number; isExtra?: boolean; extraType?: "wide" | "noball"; extraRuns?: number }) => {
@@ -89,7 +97,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         const added = result.extraRuns ?? 1;
         const newRuns = prev.runs + added;
         const newExtras = prev.extras + added;
-        toast({ title: `EXTRA +${added}`, description: `Received ${result.extraType}` });
+        showModal(`EXTRA +${added}`, `Received ${result.extraType}`);
         return { ...prev, runs: newRuns, extras: newExtras };
       }
 
@@ -105,24 +113,14 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
       if (result.batterCorrect) {
         // Batter scored runs
         newRuns += result.runs ?? 0;
-        toast({
-          title: `${result.runs ?? 0} RUN${(result.runs ?? 0) !== 1 ? "S" : ""}! 🎉`,
-          description: `Great shot by the batter!`,
-        });
+        showModal(`${result.runs ?? 0} RUN${(result.runs ?? 0) !== 1 ? "S" : ""}! 🎉`, `Great shot by the batter!`);
       } else if (result.bowlerCorrect) {
         // Wicket!
         newWickets += 1;
-        toast({
-          title: "WICKET! 🎯",
-          description: "Bowler got it right! Batter is out!",
-          variant: "destructive",
-        });
+        showModal("WICKET! 🎯", "Bowler got it right! Batter is out!");
       } else {
         // Dot ball (both wrong)
-        toast({
-          title: "DOT BALL ⚪",
-          description: "Both got it wrong!",
-        });
+        showModal("DOT BALL ⚪", "Both got it wrong!");
       }
 
   // Determine team sizes based on who's batting currently
@@ -151,7 +149,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         // Determine new batting team (switch)
         const nextBatting = prev.battingTeam === "A" ? "B" : "A";
 
-        toast({ title: "Innings Over", description: `End of innings 1. Target: ${newRuns + 1} runs.` });
+        setInningsOverModal({ title: "Innings Over", description: `Score: ${newRuns}/${newWickets} in ${newOvers}.${newBalls % 6} overs. Target: ${newRuns + 1} runs.` });
 
         return {
           ...prev,
@@ -178,7 +176,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         // Early chase success
         if (typeof target === "number" && newRuns >= target) {
           const winnerName = prev.battingTeam === "A" ? teamAName : teamBName;
-          toast({ title: `Match Over`, description: `${winnerName} won by chasing the target! 🏆` });
+          showModal(`Match Over`, `${winnerName} won by chasing the target! 🏆`);
           return {
             ...prev,
             runs: newRuns,
@@ -207,7 +205,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
             winnerName = "Tie";
           }
 
-          toast({ title: `Match Over`, description: winnerName === "Tie" ? `The match is a tie.` : `${winnerName} won the match! 🏆` });
+          showModal(`Match Over`, winnerName === "Tie" ? `The match is a tie.` : `${winnerName} won the match! 🏆`);
 
           return {
             ...prev,
@@ -289,6 +287,30 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
           role="bowling"
         />
       </div>
+
+      {/* Modal for game events */}
+      {modalMessage && (
+        <Dialog open={!!modalMessage} onOpenChange={() => setModalMessage(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{modalMessage.title}</DialogTitle>
+              <DialogDescription>{modalMessage.description}</DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal for innings over */}
+      {inningsOverModal && (
+        <Dialog open={!!inningsOverModal} onOpenChange={() => setInningsOverModal(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{inningsOverModal.title}</DialogTitle>
+              <DialogDescription>{inningsOverModal.description}</DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
