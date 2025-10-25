@@ -59,6 +59,8 @@ const [questionPools] = ((): [{ first: typeof QUESTIONS; second: typeof QUESTION
 
 export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, battingFirst, onNewGame }: GameScreenProps) => {
   const { toast } = useToast();
+  const initialBowlingTeam = battingFirst === "A" ? teamBPlayers : teamAPlayers;
+  const initialBowlingSize = Math.max(1, initialBowlingTeam.length);
   const [gameState, setGameState] = useState<GameState>({
     innings: 1,
     battingTeam: battingFirst,
@@ -68,7 +70,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
     balls: 0,
     extras: 0,
     currentBatter: 0,
-    currentBowler: 10, // Start from bottom (last player)
+    currentBowler: initialBowlingSize - 1, // Start from last player
     usedBalls: [],
     gameOver: false,
   });
@@ -163,7 +165,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
           overs: 0,
           balls: 0,
           currentBatter: 0,
-          currentBowler: 10,
+          currentBowler: Math.max(1, (prev.battingTeam === "A" ? teamAPlayers : teamBPlayers).length) - 1,
           // reset usedBalls so all 15 questions are available again for innings 2
           usedBalls: [],
         };
