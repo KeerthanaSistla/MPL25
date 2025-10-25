@@ -75,6 +75,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
   });
   const [modalMessage, setModalMessage] = useState<{ title: string; description: string } | null>(null);
   const [inningsOverModal, setInningsOverModal] = useState<{ title: string; description: string } | null>(null);
+  const [winnerModal, setWinnerModal] = useState<{ title: string; description: string } | null>(null);
 
   const handleBallSelect = (ballNumber: number) => {
     setGameState(prev => ({
@@ -162,6 +163,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
           wickets: 0,
           overs: 0,
           balls: 0,
+          extras: 0,
           currentBatter: 0,
           currentBowler: Math.max(1, (prev.battingTeam === "A" ? teamAPlayers : teamBPlayers).length) - 1,
           // reset usedBalls so all 15 questions are available again for innings 2
@@ -176,7 +178,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
         // Early chase success
         if (typeof target === "number" && newRuns >= target) {
           const winnerName = prev.battingTeam === "A" ? teamAName : teamBName;
-          showModal(`Match Over`, `${winnerName} won by chasing the target! 🏆`);
+          setWinnerModal({ title: "🏆 Match Winner!", description: `${winnerName} won by chasing the target!` });
           return {
             ...prev,
             runs: newRuns,
@@ -205,7 +207,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
             winnerName = "Tie";
           }
 
-          showModal(`Match Over`, winnerName === "Tie" ? `The match is a tie.` : `${winnerName} won the match! 🏆`);
+          setWinnerModal({ title: "🏆 Match Winner!", description: winnerName === "Tie" ? `The match is a tie.` : `${winnerName} won the match!` });
 
           return {
             ...prev,
@@ -276,6 +278,7 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
           })()}
           onBallSelect={handleBallSelect}
           onAnswer={handleAnswer}
+          innings={gameState.innings}
         />
 
         {/* Right: Bowling Team */}
@@ -307,6 +310,18 @@ export const GameScreen = ({ teamAName, teamBName, teamAPlayers, teamBPlayers, b
             <DialogHeader>
               <DialogTitle>{inningsOverModal.title}</DialogTitle>
               <DialogDescription>{inningsOverModal.description}</DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal for match winner */}
+      {winnerModal && (
+        <Dialog open={!!winnerModal} onOpenChange={() => setWinnerModal(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-center">{winnerModal.title}</DialogTitle>
+              <DialogDescription className="text-lg text-center mt-4">{winnerModal.description}</DialogDescription>
             </DialogHeader>
           </DialogContent>
         </Dialog>

@@ -3,7 +3,7 @@ export type Question = {
 	text: string;
 	choices: string[];
 	correctIndex: number;
-	runs: 0 | 1 | 2 | 4 | 6 | 0;
+	runs: 1 | 2 | 4 | 6 | 0;
 	type?: "normal" | "wide" | "noball";
 	toughness?: number;
 };

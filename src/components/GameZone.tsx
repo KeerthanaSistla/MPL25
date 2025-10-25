@@ -15,9 +15,10 @@ interface GameZoneProps {
   availableBalls: (Question | null)[];
   onBallSelect: (ballNumber: number) => void;
   onAnswer: (result: { batterCorrect: boolean; bowlerCorrect?: boolean; runs: number }) => void;
+  innings: 1 | 2;
 }
 
-export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZoneProps) => {
+export const GameZone = ({ availableBalls, onBallSelect, onAnswer, innings }: GameZoneProps) => {
   const [selectedBall, setSelectedBall] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [stage, setStage] = useState<"batter" | "bowler" | null>(null);
@@ -105,7 +106,7 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer }: GameZonePro
             const isAvailable = ball !== null;
             return (
               <Button
-                key={i + 1}
+                key={`${innings}-${i + 1}`}
                 onClick={() => {
                   if (ball) handleBallClick(ball);
                 }}
