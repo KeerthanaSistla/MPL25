@@ -9,12 +9,20 @@ interface Question {
   choices: string[];
   correctIndex: number;
   runs: number;
+  type?: "wide" | "noball" | "normal"; // ✅ optional type for extras
 }
 
 interface GameZoneProps {
   availableBalls: (Question | null)[];
   onBallSelect: (ballNumber: number) => void;
-  onAnswer: (result: { batterCorrect: boolean; bowlerCorrect?: boolean; runs: number }) => void;
+  onAnswer: (result: { 
+    batterCorrect?: boolean; 
+    bowlerCorrect?: boolean; 
+    runs?: number;
+    isExtra?: boolean; 
+    extraType?: "wide" | "noball"; 
+    extraRuns?: number;
+  }) => void;
   innings: 1 | 2;
 }
 
@@ -24,12 +32,33 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer, innings }: Ga
   const [stage, setStage] = useState<"batter" | "bowler" | null>(null);
   const [batterAnswer, setBatterAnswer] = useState<number | null>(null);
 
+  // ✅ Step 1: Define handleBatterWrong before using it
+  const handleBatterWrong = () => {
+    setStage("bowler");
+    setTimeLeft(30);
+  };
+
+  const handleBowlerAnswer = (isCorrect: boolean) => {
+    if (isCorrect) {
+      onAnswer({ batterCorrect: false, bowlerCorrect: true, runs: 0 });
+    } else {
+      onAnswer({ batterCorrect: false, bowlerCorrect: false, runs: 0 });
+    }
+    resetGame();
+  };
+
+  const resetGame = () => {
+    setSelectedBall(null);
+    setStage(null);
+    setTimeLeft(30);
+    setBatterAnswer(null);
+  };
+
   useEffect(() => {
     if (selectedBall && stage && timeLeft > 0) {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            // Time's up - treat as wrong answer
             if (stage === "batter") {
               handleBatterWrong();
             } else {
@@ -45,16 +74,21 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer, innings }: Ga
   }, [selectedBall, stage, timeLeft]);
 
   const handleBallClick = (ball: Question) => {
+    if (ball.type === "wide" || ball.type === "noball") {
+      onBallSelect(ball.id);
+      onAnswer({
+        isExtra: true,
+        extraType: ball.type,
+        extraRuns: 1,
+      });
+      return;
+    }
+
     setSelectedBall(ball);
     setStage("batter");
     setTimeLeft(30);
     setBatterAnswer(null);
     onBallSelect(ball.id);
-  };
-
-  const handleBatterWrong = () => {
-    setStage("bowler");
-    setTimeLeft(30);
   };
 
   const handleAnswerClick = (optionIndex: number) => {
@@ -64,35 +98,15 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer, innings }: Ga
 
     if (stage === "batter") {
       if (isCorrect) {
-        // Batter scored runs
         onAnswer({ batterCorrect: true, runs: selectedBall.runs });
         resetGame();
       } else {
-        // Batter got it wrong, bowler's turn
         setBatterAnswer(optionIndex);
         handleBatterWrong();
       }
     } else if (stage === "bowler") {
       handleBowlerAnswer(isCorrect);
     }
-  };
-
-  const handleBowlerAnswer = (isCorrect: boolean) => {
-    if (isCorrect) {
-      // Bowler correct = Wicket
-      onAnswer({ batterCorrect: false, bowlerCorrect: true, runs: 0 });
-    } else {
-      // Both wrong = Dot ball
-      onAnswer({ batterCorrect: false, bowlerCorrect: false, runs: 0 });
-    }
-    resetGame();
-  };
-
-  const resetGame = () => {
-    setSelectedBall(null);
-    setStage(null);
-    setTimeLeft(30);
-    setBatterAnswer(null);
   };
 
   return (
@@ -134,7 +148,7 @@ export const GameZone = ({ availableBalls, onBallSelect, onAnswer, innings }: Ga
                 <span className="font-bold">Ball {selectedBall.id}</span>
                 <Circle className="w-4 h-4" />
               </div>
-              
+
               {/* Timer */}
               <div className="flex items-center justify-center gap-2 mb-4">
                 <Clock className="w-5 h-5" />

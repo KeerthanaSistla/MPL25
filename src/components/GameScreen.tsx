@@ -30,19 +30,25 @@ export interface GameState {
 }
 
 // Create two distinct 15-question pools so innings 1 and innings 2 use different questions
+// Create two distinct 15-question pools so innings 1 and innings 2 use different questions
 const generatePools = () => {
   const all = [...QUESTIONS];
   const shuffled = all.sort(() => Math.random() - 0.5);
-  const first = shuffled.slice(0, 15).map((q, idx) => ({ ...q, id: idx + 1 }));
-  const second = shuffled.slice(15, 30).map((q, idx) => ({ ...q, id: idx + 16 }));
 
-  // Mark 5 random balls in each pool as extras (wide/noball)
+  const first = shuffled.slice(0, 15).map((q, idx) => ({ ...q, id: idx + 1, type: "normal" as const }));
+  const second = shuffled.slice(15, 30).map((q, idx) => ({ ...q, id: idx + 16, type: "normal" as const }));
+
   const markExtras = (pool: any[]) => {
-    const idxs = Array.from({ length: pool.length }, (_, i) => i).sort(() => Math.random() - 0.5).slice(0, 5);
-    for (const i of idxs) {
-      pool[i].type = Math.random() < 0.5 ? "wide" : "noball";
-      // extras typically award 1 run
-      pool[i].runs = 0; // extra doesn't carry runs from question
+    const indices = Array.from({ length: pool.length }, (_, i) => i).sort(() => Math.random() - 0.5);
+    const noBalls = indices.slice(0, 2);
+    const wides = indices.slice(2, 5);
+
+    for (const i of noBalls) pool[i].type = "noball";
+    for (const i of wides) pool[i].type = "wide";
+
+    // extras always give +1 run but are not legal balls
+    for (const i of [...noBalls, ...wides]) {
+      pool[i].runs = 0;
     }
   };
 
